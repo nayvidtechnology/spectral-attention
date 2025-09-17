@@ -1,0 +1,88 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "spectral-attention"
+version = "0.1.0"
+description = "Spectral (FFT/DCT) Attention: a global mixer for long-context Transformers, stable, efficient, interpretable."
+readme = { file = "README.md", content-type = "text/markdown", encoding = "utf-8" }
+
+license = { file = "LICENSE" }
+authors = [
+  { name = "Divyang Panchasara", email = "divyang4481@gmail.com" },
+  { name = "Nayvid Technology LLP", email = "info@nayvid.com" }
+]
+maintainers = [
+  { name = "Divyang Panchasara", email = "divyang4481@gmail.com" }
+]
+requires-python = ">=3.10"
+dependencies = []
+keywords = ["transformers", "attention", "fft", "dct", "pytorch", "long-context"]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+
+[project.urls]
+Homepage = "https://nayvid.com"
+Repository = "https://github.com/nayvidtechnology/spectral-attention"
+Issues = "https://github.com/nayvidtechnology/spectral-attention/issues"
+Documentation = "https://github.com/nayvidtechnology/spectral-attention#readme"
+
+[project.optional-dependencies]
+core = [
+  "transformers==4.55.2",
+  "datasets==4.0.0",
+  "accelerate==1.10.0",
+  "tokenizers==0.21.4",
+  "sentencepiece==0.2.1",
+  "numpy==2.0.1",
+  "scipy==1.15.3",
+  "scikit-learn==1.7.1",
+  "tqdm==4.67.1",
+  "matplotlib==3.10.6",
+  "seaborn==0.13.2",
+  "rich==13.9.4",
+  "notebook==7.3.2",
+  "ipykernel==6.29.5",
+]
+torch-cu124 = [
+  "torch==2.6.0+cu124",
+  "torchvision==0.21.0+cu124",
+  "torchaudio==2.6.0+cu124",
+]
+dev = [
+  "pytest>=7.0",
+  "pytest-cov>=4.0",
+  "black>=24.0.0",
+  "isort>=5.13.0",
+  "ruff>=0.6.0",
+]
+docs = [
+  "mkdocs>=1.6.0",
+  "mkdocs-material>=9.5.0",
+]
+
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+exclude = ["tests", "notebooks", "scripts", "experiments", "docs", "agent", "ci"]
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+addopts = "-q"
+testpaths = ["tests"]
+
+[tool.isort]
+profile = "black"
+
+[tool.black]
+line-length = 100
+target-version = ["py310"]

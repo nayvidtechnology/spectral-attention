@@ -1,0 +1,63 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "KD warmup (freeze)",
+			"type": "shell",
+			"command": "python",
+			"args": [
+				"scripts/train_lm_hf_spectral.py",
+				"--device",
+				"gpu",
+				"--dtype",
+				"bf16",
+				"--batch",
+				"1",
+				"--seq",
+				"1024",
+				"--steps",
+				"500",
+				"--lr",
+				"3e-4",
+				"--kd",
+				"--kd_alpha",
+				"0.7",
+				"--kd_tau",
+				"2.0",
+				"--freeze_non_attn",
+				"--logdir",
+				"experiments/runs/kd"
+			]
+		},
+		{
+			"label": "KD warmup (freeze)",
+			"type": "shell",
+			"command": "python",
+			"args": [
+				"scripts/train_lm_hf_spectral.py",
+				"--device",
+				"gpu",
+				"--dtype",
+				"bf16",
+				"--batch",
+				"1",
+				"--seq",
+				"512",
+				"--steps",
+				"400",
+				"--lr",
+				"3e-4",
+				"--kd",
+				"--kd_alpha",
+				"0.7",
+				"--kd_tau",
+				"2.0",
+				"--freeze_non_attn",
+				"--logdir",
+				"experiments/runs/kd",
+				"--save_ckpt",
+				"experiments/runs/kd/spectral_kd_freeze.pt"
+			]
+		}
+	]
+}

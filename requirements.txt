@@ -1,0 +1,26 @@
+# PyTorch (CUDA 12.4 build)
+torch==2.6.0+cu124
+torchvision==0.21.0+cu124
+torchaudio==2.6.0+cu124
+
+# HuggingFace + training stack
+transformers==4.55.2
+datasets==4.0.0
+accelerate==1.10.0
+tokenizers==0.21.4
+sentencepiece==0.2.1
+
+# Core scientific stack
+numpy==2.0.1
+scipy==1.15.3
+scikit-learn==1.7.1
+
+# Utilities
+tqdm==4.67.1
+matplotlib==3.10.6   # you have .6 installed; pinned here
+seaborn==0.13.2
+rich==13.9.4
+
+# Notebooks
+notebook==7.3.2
+ipykernel==6.29.5
