@@ -145,6 +145,7 @@ class SpectralAttention(nn.Module):
     - residual connection
     - optional token-gate (rank-1 in frequency)
     - device knob: 'auto' | 'cpu' | 'gpu'
+    - optional FlashAttention integration for QK^T softmax steps
     """
 
     def __init__(
@@ -156,6 +157,7 @@ class SpectralAttention(nn.Module):
         token_gate: bool = False,
         dropout: float = 0.0,
         device: str = "auto",  # 'auto' | 'cpu' | 'gpu'
+        use_flash: bool = False,
     ):
         super().__init__()
         assert d_model % n_heads == 0, "d_model must be divisible by n_heads"
@@ -164,8 +166,21 @@ class SpectralAttention(nn.Module):
         self.d_head = d_model // n_heads
         self.use_dct = use_dct
         self.token_gate = token_gate
+        self.use_flash = use_flash
         self.device_pref = (device or "auto").lower()
         self.has_torch_dct = hasattr(torch.fft, "dct") and hasattr(torch.fft, "idct")
+        
+        # Check FlashAttention availability
+        self.has_flash_attn = False
+        if use_flash:
+            try:
+                import flash_attn
+                from flash_attn import flash_attn_func
+                self.has_flash_attn = True
+                self.flash_attn_func = flash_attn_func
+            except ImportError:
+                print("Warning: FlashAttention requested but not available. Falling back to torch.fft path.")
+                self.has_flash_attn = False
 
         # Projections
         self.W_qkv = nn.Linear(d_model, 3 * d_model)
@@ -237,9 +252,30 @@ class SpectralAttention(nn.Module):
         B, T, _ = x.shape
         device, in_dtype = x.device, x.dtype
 
-        # Projections; use V for spectral mixing
+        # Projections
         q, k, v = self.W_qkv(x).chunk(3, dim=-1)
-        v = v.view(B, T, self.n_heads, self.d_head).transpose(1, 2)  # [B, H, T, Dh]
+        
+        # If FlashAttention is available and enabled, use it for QK^T computation
+        if self.use_flash and self.has_flash_attn:
+            # Reshape for FlashAttention: [B, T, n_heads, d_head]
+            q = q.view(B, T, self.n_heads, self.d_head)
+            k = k.view(B, T, self.n_heads, self.d_head)
+            v = v.view(B, T, self.n_heads, self.d_head)
+            
+            # Use FlashAttention for efficient QK^T computation
+            # FlashAttention expects inputs in [B, T, n_heads, d_head] format
+            try:
+                attn_output = self.flash_attn_func(q, k, v, dropout_p=0.0, causal=False)
+                # attn_output shape: [B, T, n_heads, d_head]
+                # Reshape to [B, n_heads, T, d_head] for spectral processing
+                v = attn_output.transpose(1, 2)
+            except Exception as e:
+                print(f"FlashAttention failed, falling back to spectral mixing: {e}")
+                # Fall back to spectral mixing without attention
+                v = v.view(B, T, self.n_heads, self.d_head).transpose(1, 2)
+        else:
+            # Use V for spectral mixing without FlashAttention
+            v = v.view(B, T, self.n_heads, self.d_head).transpose(1, 2)  # [B, H, T, Dh]
 
         # Per-seq-length spectral params
         self._maybe_init_bins(T, device, torch.float32)
