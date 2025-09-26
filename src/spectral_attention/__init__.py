@@ -16,6 +16,7 @@ Exports:
 from .spectral_attention import SpectralAttention
 from .blocks import SpectralEncoderBlock, SpectralEncoder, SpectralEncoderModel
 from .holonomy import HolonomyAttention
+from .layers import HybridAttentionLayer
 # Integration helpers
 try:
     from .integrations import convert_gpt2_to_spectral  # type: ignore
@@ -30,6 +31,7 @@ __all__ = [
     "SpectralEncoder",
     "SpectralEncoderModel",
     "HolonomyAttention",
+    "HybridAttentionLayer",
     "convert_gpt2_to_spectral",
     "convert_gpt2lm_to_spectral",
 ]
