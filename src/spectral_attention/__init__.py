@@ -15,6 +15,7 @@ Exports:
 
 from .spectral_attention import SpectralAttention
 from .blocks import SpectralEncoderBlock, SpectralEncoder, SpectralEncoderModel
+from .holonomy import HolonomyAttention
 # Integration helpers
 try:
     from .integrations import convert_gpt2_to_spectral  # type: ignore
@@ -25,9 +26,10 @@ except Exception:
 
 __all__ = [
     "SpectralAttention",
-    "SpectralEncoderBlock",
+    "SpectralEncoderBlock", 
     "SpectralEncoder",
     "SpectralEncoderModel",
+    "HolonomyAttention",
     "convert_gpt2_to_spectral",
     "convert_gpt2lm_to_spectral",
 ]
