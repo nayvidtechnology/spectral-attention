@@ -12,6 +12,7 @@ Think of it as a drop-in alternative to vanilla self-attention for long contexts
 - Optional token-conditioned gate that modulates frequencies
 - **FlashAttention integration** for efficient QK^T softmax computation when available
 - **Holonomy Attention** support for curvature-inspired rotations
+- **Hybrid Attention Layer** for mixing different attention types within a single layer
 - Works with PyTorch autocast/mixed precision, torch.compile
 - Minimal encoder blocks and LM wrappers for quick experiments
 - Benchmarks, metrics.jsonl logging, and analysis notebooks included
@@ -22,6 +23,7 @@ Think of it as a drop-in alternative to vanilla self-attention for long contexts
 - `src/spectral_attention/`
 	- `spectral_attention.py`: Core SpectralAttention module (rFFT/DCT paths, FlashAttention integration)
 	- `holonomy.py`: HolonomyAttention module with curvature-inspired rotations
+	- `layers/hybrid_layer.py`: HybridAttentionLayer for mixing different attention types
 	- `blocks.py`: Encoder block/stack + minimal LM wrapper
 	- `vanilla_blocks.py`: Baseline Transformer encoder (nn.MultiheadAttention)
 	- `models.py`: SpectralLM/VanillaLM (token + positional embeddings + encoder + head)
@@ -39,6 +41,7 @@ Think of it as a drop-in alternative to vanilla self-attention for long contexts
 	- `promote/`: Curated results to move into docs
 - `notebooks/`: Quickstart, frequency response, long-context eval, benchmark report
 	- `05_multilang_compare.ipynb`: Multilingual GPT-2 vs Spectral GPT-2 demo (EN/HI/GU/KN)
+	- `hybrid_attention_demo.ipynb`: Hybrid Attention Layer usage examples and analysis
 - `tests/`: Unit tests for shapes/grad/AMP/bins and encoder smoke tests
 
 
@@ -110,6 +113,41 @@ output = holonomy_attn(Q, K, V, mask=causal_mask)
 - Standard scaled dot-product attention after rotation
 - Optional causal masking support  
 - Dropout regularization
+
+## Hybrid Attention Layer
+
+The `HybridAttentionLayer` allows mixing different attention types (standard, spectral, holonomy) within a single transformer layer. This enables flexible architectures that can leverage the strengths of different attention mechanisms simultaneously.
+
+```python
+from spectral_attention.layers.hybrid_layer import HybridAttentionLayer
+
+# Mix 4 standard, 2 spectral, and 2 holonomy heads
+head_types = ["standard"] * 4 + ["spectral"] * 2 + ["holonomy"] * 2
+hybrid_layer = HybridAttentionLayer(d_model=512, head_types=head_types, dropout=0.1)
+
+# Use like any transformer layer [batch, seq_len, d_model] -> [batch, seq_len, d_model]
+output = hybrid_layer(x)
+```
+
+**Key features:**
+- **Configurable head types**: Specify attention mechanism for each head
+- **Flexible mixing**: Any combination of "standard", "spectral", "holonomy" heads
+- **Unified interface**: Standard transformer layer interface with residual connections
+- **Performance analysis**: Built-in support for analyzing different head type contributions
+
+**Example configurations:**
+```python
+# Balanced multi-modal
+heads = ["standard", "spectral", "holonomy"] * 2 + ["standard", "spectral"]
+
+# Spectral-heavy for long sequences
+heads = ["spectral"] * 6 + ["standard", "holonomy"]
+
+# Standard-dominant with specialization
+heads = ["standard"] * 6 + ["spectral", "holonomy"]
+```
+
+See `notebooks/hybrid_attention_demo.ipynb` for detailed usage examples and performance analysis.
 
 ## Related research (context & contrasts)
 
