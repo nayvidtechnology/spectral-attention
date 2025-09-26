@@ -184,13 +184,39 @@ class SpectralAttention(nn.Module):
             nn.init.constant_(self.alpha.bias, 1e-2)  # was 0.0
 
     def _maybe_init_bins(self, T: int, device: torch.device, dtype: torch.dtype) -> None:
-        """Initialize per-head spectral bins based on seq length."""
+        """Initialize per-head spectral bins based on seq length.
+
+        Smart init: low-frequency emphasis + smooth decay + small phase noise.
+        Can be disabled by setting environment variable SPECTRAL_NO_SMART_INIT=1
+        (the training script may expose a CLI flag to toggle this environment var).
+        """
         n_bins = T if self.use_dct else (T // 2 + 1)
         if int(self._initialized_bins.item()) == n_bins:
             return
         sp_dtype = torch.float32
         self.log_gain = nn.Parameter(torch.zeros(self.n_heads, n_bins, device=device, dtype=sp_dtype))
         self.phase    = nn.Parameter(torch.zeros(self.n_heads, n_bins, device=device, dtype=sp_dtype))
+
+        # Smart init logic
+        import os
+        disable = os.environ.get("SPECTRAL_NO_SMART_INIT") == "1"
+        if not disable:
+            # Frequency axis 0..1
+            freq = torch.linspace(0, 1, n_bins, device=device, dtype=sp_dtype)
+            # Base shape: gentle negative slope plus mild curvature
+            base = 0.05 - 0.25 * (freq ** 1.2)
+            # Add a light Gaussian smoothing kernel via conv (simulate smoothing)
+            if n_bins > 5:
+                kernel = torch.tensor([0.05, 0.2, 0.5, 0.2, 0.05], device=device, dtype=sp_dtype)
+                pad = (kernel.numel() - 1) // 2
+                padded = torch.nn.functional.pad(base.unsqueeze(0).unsqueeze(0), (pad, pad), mode='reflect')
+                smooth = torch.nn.functional.conv1d(padded, kernel.view(1,1,-1)).squeeze(0).squeeze(0)
+                base = smooth[:n_bins]
+            # Slight per-head variation
+            head_noise = torch.randn(self.n_heads, 1, device=device, dtype=sp_dtype) * 0.01
+            self.log_gain.data.copy_(base.unsqueeze(0) + head_noise)
+            # Small phase noise (do not bias phase strongly)
+            self.phase.data.normal_(mean=0.0, std=0.01)
         self._initialized_bins = torch.tensor(n_bins, device=device, dtype=torch.long)
 
     def forward(self, x: torch.Tensor, mask: torch.Tensor | None = None) -> torch.Tensor:

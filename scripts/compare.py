@@ -174,6 +174,7 @@ def run_clf(kind, args, device, logdir, X_val=None, Y_val=None):
 
 if __name__ == "__main__":
     p = argparse.ArgumentParser()
+    p.add_argument("--require_env", type=str, default=None, help="Fail if CONDA_DEFAULT_ENV or basename of VIRTUAL_ENV does not match")
     p.add_argument("--task", choices=["lm", "imdb"], default="lm")
     p.add_argument("--kind", choices=["spectral", "vanilla"], required=True)
     p.add_argument("--depth", type=int, default=2)
@@ -189,6 +190,11 @@ if __name__ == "__main__":
     p.add_argument("--logdir", type=str, default="experiments/runs/compare")
     p.add_argument("--log_every", type=int, default=50)
     args = p.parse_args()
+    if args.require_env:
+        env_name = os.environ.get("CONDA_DEFAULT_ENV") or os.environ.get("VIRTUAL_ENV", "")
+        base = os.path.basename(env_name) if env_name else env_name
+        if not env_name or (args.require_env not in (env_name, base)):
+            raise SystemExit(f"[env] Required environment '{args.require_env}' not active (found '{env_name}')")
 
     set_seed(1234)
     device = get_device(args.device)
