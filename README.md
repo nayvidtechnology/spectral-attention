@@ -10,6 +10,8 @@ Think of it as a drop-in alternative to vanilla self-attention for long contexts
 - O(n log n) mixing along the sequence dimension via FFT/DCT
 - Per-head, per-bin learnable filters: magnitude (log_gain) and phase
 - Optional token-conditioned gate that modulates frequencies
+- **FlashAttention integration** for efficient QK^T softmax computation when available
+- **Holonomy Attention** support for curvature-inspired rotations
 - Works with PyTorch autocast/mixed precision, torch.compile
 - Minimal encoder blocks and LM wrappers for quick experiments
 - Benchmarks, metrics.jsonl logging, and analysis notebooks included
@@ -18,7 +20,8 @@ Think of it as a drop-in alternative to vanilla self-attention for long contexts
 ## Repository layout
 
 - `src/spectral_attention/`
-	- `spectral_attention.py`: Core SpectralAttention module (rFFT/DCT paths)
+	- `spectral_attention.py`: Core SpectralAttention module (rFFT/DCT paths, FlashAttention integration)
+	- `holonomy.py`: HolonomyAttention module with curvature-inspired rotations
 	- `blocks.py`: Encoder block/stack + minimal LM wrapper
 	- `vanilla_blocks.py`: Baseline Transformer encoder (nn.MultiheadAttention)
 	- `models.py`: SpectralLM/VanillaLM (token + positional embeddings + encoder + head)
@@ -26,6 +29,7 @@ Think of it as a drop-in alternative to vanilla self-attention for long contexts
 	- `metrics.py`, `utils.py`: Perf helpers (tokens/s, peak MB) and device helpers
 - `scripts/`
 	- `bench_spectral_attention.py`: Micro-benchmark tokens/s vs config
+	- `bench_flashspectra.py`: **FlashAttention vs standard SpectralAttention benchmark**
 	- `train_lm.py`: Train spectral/vanilla LM on Wikitext-2 (Hugging Face datasets)
 	- `compare.py`: Small comparison suites (LM and IMDB byte-level)
 	- `plot_freq_response.py`: Plot mean gain/phase from a checkpoint
@@ -59,6 +63,53 @@ Key properties:
 - Memory: linear in T; avoids O(T²) attention maps
 - Per-seq-length bin parameters are lazily initialized on the first forward pass, then updated if T changes
 - Robust to missing torch.fft.dct: falls back to a safe DCT-II/IDCT-III implemented via rFFT
+- **FlashAttention integration**: When `use_flash=True`, combines efficient QK^T computation with spectral mixing
+- **Holonomy rotations**: Alternative attention mechanism using learnable curvature-inspired transformations
+
+## FlashAttention Integration
+
+SpectralAttention supports optional FlashAttention integration via the `use_flash=True` parameter:
+
+```python
+from spectral_attention import SpectralAttention
+
+# Standard spectral mixing
+attn_standard = SpectralAttention(d_model=512, n_heads=8, use_flash=False)
+
+# With FlashAttention for efficient QK^T computation  
+attn_flash = SpectralAttention(d_model=512, n_heads=8, use_flash=True)
+```
+
+**Benefits:**
+- Reduced memory footprint for long sequences 
+- Faster QK^T softmax computation
+- Graceful fallback to standard spectral mixing if FlashAttention unavailable
+- Compatible with both rFFT and DCT spectral transforms
+
+**Memory efficiency benchmark:**
+```bash
+python scripts/bench_flashspectra.py --seq 4096 8192 --batch 2 --logdir experiments/flash_benchmark
+```
+
+## Holonomy Attention
+
+The repository also includes `HolonomyAttention`, an alternative attention mechanism that applies learnable curvature-inspired rotations to queries before standard scaled dot-product attention:
+
+```python
+from spectral_attention.holonomy import HolonomyAttention
+
+# Create holonomy attention layer
+holonomy_attn = HolonomyAttention(d_head=64, n_heads=8, dropout=0.1)
+
+# Use with Q, K, V tensors [batch, heads, seq_len, dim]
+output = holonomy_attn(Q, K, V, mask=causal_mask)
+```
+
+**Key features:**
+- Learnable curvature matrix per head for query rotation
+- Standard scaled dot-product attention after rotation
+- Optional causal masking support  
+- Dropout regularization
 
 ## Related research (context & contrasts)
 
